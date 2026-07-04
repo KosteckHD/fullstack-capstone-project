@@ -1,45 +1,25 @@
 require('dotenv').config();
-const MongoClient = require('mongodb').MongoClient;
 const fs = require('fs');
+const path = require('path');
+const connectToDatabase = require('../../models/db');
 
-// MongoDB connection URL with authentication options
-let url = `${process.env.MONGO_URL}`;
-let filename = `${__dirname}/gifts.json`;
-const dbName = 'giftdb';
-const collectionName = 'gifts';
-
-// notice you have to load the array of gifts into the data object
+const filename = path.join(__dirname, 'gifts.json');
 const data = JSON.parse(fs.readFileSync(filename, 'utf8')).docs;
 
-// connect to database and insert data into the collection
 async function loadData() {
-    const client = new MongoClient(url);
-
     try {
-        // Connect to the MongoDB client
-        await client.connect();
-        console.log("Connected successfully to server");
+        const db = await connectToDatabase();
+        const collection = db.collection('gifts');
+        const documents = await collection.find({}).toArray();
 
-        // database will be created if it does not exist
-        const db = client.db(dbName);
-
-        // collection will be created if it does not exist
-        const collection = db.collection(collectionName);
-        let cursor = await collection.find({});
-        let documents = await cursor.toArray();
-
-        if(documents.length == 0) {
-            // Insert data into the collection
+        if (documents.length === 0) {
             const insertResult = await collection.insertMany(data);
             console.log('Inserted documents:', insertResult.insertedCount);
         } else {
-            console.log("Gifts already exists in DB")
+            console.log('Gifts already exists in DB');
         }
     } catch (err) {
-        console.error(err);
-    } finally {
-        // Close the connection
-        await client.close();
+        console.warn('Skipping gift import seed because no database is available.', err.message);
     }
 }
 
@@ -47,4 +27,4 @@ loadData();
 
 module.exports = {
     loadData,
-  };
+};
